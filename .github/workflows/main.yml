@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main  # run for branches
+    tags:
+      - "*"  # run for tags
+  pull_request:
+    branches:
+      - "*"  # run for branches
+    tags:
+      - "*"  # run for tags
+
+jobs:
+  test:
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: go/src/github.com/exam-rncp/catalogue
+    runs-on: ubuntu-latest
+    env:
+      GROUP: f3lin
+      COMMIT: ${{ github.sha }}
+      REPO: catalogue
+      GO_VERSION: 1.7.5
+      GOPATH: /home/runner/work/catalogue/catalogue/go/
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/exam-rncp/catalogue
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup PATH
+        run: echo "${GOPATH}/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: go get -u github.com/FiloSottile/gvt && gvt restore
+
+      - name: Build
+        run: |
+          chmod +x scripts/build.sh
+          ./scripts/build.sh
+
+      - name: Unit Test
+        run:  |
+          chmod +x test/test.sh
+          ./test/test.sh unit.py
+
+      - name: Test Docker Image
+        run: ./test/test.sh container.py
