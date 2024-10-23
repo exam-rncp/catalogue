@@ -18,7 +18,7 @@ test-unit:
 
 # require docker compose
 test-container: 
-	chmod +x /test/test.sh
+	chmod +x test/test.sh
 	./test/test.sh
 
 dockerbuild:
