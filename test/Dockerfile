@@ -1,16 +1,7 @@
-FROM python:3.6-alpine
+FROM golang:1.7
 
-RUN apk add --no-cache \
-		ca-certificates \
-		curl \
-		openssl
+COPY . /go/src/github.com/exam-rncp/catalogue
+WORKDIR /go/src/github.com/exam-rncp/catalogue
 
-ENV DOCKER_BUCKET get.docker.com
-ENV DOCKER_VERSION 1.8.3
-
-RUN set -x \
-	&& curl -fSL "https://${DOCKER_BUCKET}/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
-	&& tar -xzvf docker.tgz \
-	&& docker -v
-
-RUN pip install requests
+RUN go get -u github.com/FiloSottile/gvt
+RUN gvt restore

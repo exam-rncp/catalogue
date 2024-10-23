@@ -12,12 +12,16 @@ default: test
 release:
 	docker build -t $(NAME) -f ./docker/catalogue/Dockerfile .
 
-test: 
-	GROUP=f3lin COMMIT=test ./scripts/build.sh
-	./test/test.sh unit.py
-	./test/test.sh container.py --tag $(TAG)
+test-unit:
+	docker build -t test -f ./test/Dockerfile .
+	docker run --rm test go test -v
 
-dockertravisbuild: build
+# require docker compose
+test-container: 
+	chmod +x /test/test.sh
+	./test/test.sh
+
+dockerbuild:
 	docker build -t $(NAME):$(TAG) -f docker/catalogue/Dockerfile-release docker/catalogue/
 	docker build -t $(DBNAME):$(TAG) -f docker/catalogue-db/Dockerfile docker/catalogue-db/
 
