@@ -45,13 +45,9 @@ jobs:
 
       - name: Build
         run: |
-          chmod +x scripts/build.sh
-          ./scripts/build.sh
+          go test -v
 
-      - name: Unit Test
+      - name: Container Tests
         run:  |
-          chmod +x test/test.sh
-          ./test/test.sh unit.py
-
-      - name: Test Docker Image
-        run: ./test/test.sh container.py
+          make test-unit
+          make test-container
