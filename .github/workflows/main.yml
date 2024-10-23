@@ -48,6 +48,8 @@ jobs:
           go test -v
 
       - name: Container Tests
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-unit
           make test-container
