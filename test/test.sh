@@ -44,7 +44,7 @@ function check_and_run_containers() {
     fi
     
     yellow "Starting containers with MYSQL_ROOT_PASSWORD..."
-    docker compose -f ../docker-compose.yml up -d
+    docker compose -f docker-compose.yml up -d
 
     # Small delay to allow containers to start
     sleep 5
@@ -192,4 +192,4 @@ test_get_item_by_id "a0a4f044-b040-410d-8ead-4de0446aec7e"
 
 # Clean up: bring down the Docker containers
 echo "Cleaning up Docker containers..."
-docker compose -f ../docker-compose.yml down
+docker compose -f docker-compose.yml down
