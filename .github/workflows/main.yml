@@ -66,20 +66,19 @@ jobs:
       - name: Docker images tag
         env:
           TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
-        run: docker image ls
+        run: |
+           docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$TAG
+           docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO:$TAG
+     
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.GROUP }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
-      # docker image tag exam-rncp/$REPO $GROUP/$REPO:$TAG
-      # docker image tag exam-rncp/$REPO_DB $GROUP/$REPO:$TAG
-
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ env.GROUP }}
-      #     password: ${{ secrets.DOCKER_TOKEN }}
-
-      # - name: Push user to Docker Hub
-      #   env:
-      #     TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
-      #   run: |
-      #     docker push $GROUP/$REPO:$TAG
-      #     docker push $GROUP/$REPO_DB:$TAG
+      - name: Push user to Docker Hub
+        env:
+          TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+          docker push $GROUP/$REPO:$TAG
+          docker push $GROUP/$REPO_DB:$TAG
