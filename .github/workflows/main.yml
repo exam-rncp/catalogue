@@ -27,6 +27,7 @@ jobs:
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
       GOPATH: /home/runner/work/catalogue/catalogue/go/
+      AWS_REGION: eu-central-1
 
     steps:
       - uses: actions/checkout@v4
@@ -82,3 +83,30 @@ jobs:
         run: |
           docker push $GROUP/$REPO:$TAG
           docker push $GROUP/$REPO_DB:$TAG
+
+      - name: Configure AWS credentials from AWS account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Private
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag Docker Images
+        env:
+          REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+          IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+          docker tag ${GROUP}/${REPO}:${IMAGE_TAG} ${REGISTRY}/${REPO}:$IMAGE_TAG
+          docker tag ${GROUP}/${REPO_DB}:${IMAGE_TAG} ${REGISTRY}/${REPO_DB}:$IMAGE_TAG
+
+      - name: Push Catalogue and Catalogue-DB docker images to Amazon ECR Private
+        env:
+          REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+          IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+          docker push $REGISTRY/$REPO:$IMAGE_TAG
+          docker push $REGISTRY/$REPO_DB:$IMAGE_TAG
