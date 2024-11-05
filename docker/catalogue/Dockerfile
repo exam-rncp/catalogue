@@ -40,5 +40,5 @@ LABEL org.label-schema.vendor="Weaveworks" \
   org.label-schema.vcs-ref="${COMMIT}" \
   org.label-schema.schema-version="1.0"
 
-CMD ["/app", "-port=8080"]
-EXPOSE 8080
+EXPOSE 80
+CMD ["/app", "-port=80"]
