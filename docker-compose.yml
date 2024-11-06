@@ -16,7 +16,7 @@ services:
         environment:
             - reschedule=on-node-failure
         ports:
-            - "80:80"
+            - "80:8080"
         depends_on:
             catalogue-db:
                 condition: service_healthy  # This is correct for version 3.8+
