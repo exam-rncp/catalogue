@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GROUP: f3lin
-      COMMIT: ${{ github.sha }}
       REPO: catalogue
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
@@ -44,22 +43,12 @@ jobs:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-unit
-          make test-container
-  
-      - name: Docker images tag
-        run: |
-          docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$COMMIT
-          docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO_DB:$COMMIT
-     
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.GROUP }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          TAG=$(echo $GITHUB_SHA | cut -c1-7) make test-container
 
       - name: Generate Docker Compose File
         run: |
           NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
+          TAG=$(echo $GITHUB_SHA | cut -c1-7)
           cp docker-compose.yml docker-compose.temp.yml
           sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.temp.yml
           sed -i "s/\${TAG}/$TAG/g" docker-compose.temp.yml
@@ -73,9 +62,23 @@ jobs:
         continue-on-error: false
 
       - name: Checking application health...
+        id: healthcheck
         run: |
           docker exec catalogue-catalogue-1  wget -qO-  http://localhost:8080/health | jq .
           if [ $? -ne 0 ]; then
             echo "Health check failed"
             exit 1
           fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.GROUP }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Push user to Docker Hub
+        if: steps.healthcheck.outcome == 'success'
+        run: |
+          TAG=$(echo $GITHUB_SHA | cut -c1-7)
+          docker push $GROUP/$REPO:$TAG
+          docker push $GROUP/$REPO_DB:$TAG
