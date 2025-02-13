@@ -43,16 +43,20 @@ jobs:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-unit
-          TAG=$(echo $GITHUB_SHA | cut -c1-7) make test-container
 
       - name: Generate Docker Compose File
         run: |
           NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
           TAG=$(echo $GITHUB_SHA | cut -c1-7)
-          cp docker-compose.yml docker-compose.temp.yml
-          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.temp.yml
+          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.yml
           sed -i "s/\${TAG}/$TAG/g" docker-compose.temp.yml
-          chmod 644 docker-compose.temp.yml
+          chmod 644 docker-compose.yml
+
+      - name: Container Tests
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        run:  |
+          make test-container
 
       - name: Run Docker Compose
         id: docker-compose
