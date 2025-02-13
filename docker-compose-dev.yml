@@ -1,0 +1,33 @@
+version: '3.8'  # Using a valid version
+
+services:
+    catalogue:
+        image: ${GROUP}/${REPO}:${COMMIT}
+        hostname: catalogue
+        restart: always
+        cap_drop:
+            - all
+        cap_add:
+            - NET_BIND_SERVICE
+        read_only: true
+        environment:
+            - reschedule=on-node-failure
+        ports:
+            - "80:8080"
+        depends_on:
+            catalogue-db:
+                condition: service_healthy  # This is correct for version 3.8+
+
+    catalogue-db:
+        image: ${GROUP}/${REPO_DB}:${COMMIT}
+        hostname: catalogue-db
+        restart: always
+        environment:
+            - reschedule=on-node-failure
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-fake_password}
+            - MYSQL_DATABASE=socksdb
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            interval: 30s
+            timeout: 10s
+            retries: 5

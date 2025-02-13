@@ -1,16 +1,7 @@
-name: ci
-
+name: Test new Implementation
 on:
   push:
-    branches:
-      - main  # run for branches
-    tags:
-      - "*"  # run for tags
-  pull_request:
-    branches:
-      - "*"  # run for branches
-    tags:
-      - "*"  # run for tags
+    branches: [ dev ]
 
 jobs:
   build:
@@ -27,7 +18,6 @@ jobs:
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
       GOPATH: /home/runner/work/catalogue/catalogue/go/
-      AWS_REGION: eu-central-1
 
     steps:
       - uses: actions/checkout@v4
@@ -65,11 +55,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
       - name: Docker images tag
-        env:
-          TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
         run: |
-           docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$TAG
-           docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO_DB:$TAG
+          docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$COMMIT
+          docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO_DB:$COMMIT
      
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -77,9 +65,22 @@ jobs:
           username: ${{ env.GROUP }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Push user to Docker Hub
-        env:
-          TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+      - name: Run Docker Compose
+        id: docker-compose
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        with:
+          compose-file: "./docker-compose-dev.yaml"
+        continue-on-error: false
+
+      - name: Get Logs from Catalogue Container
+        run: docker logs catalogue-catalogue-1 > logs.txt || true
+
+      - name: Check for errors in logs
         run: |
-          docker push $GROUP/$REPO:$TAG
-          docker push $GROUP/$REPO_DB:$TAG
+          if grep -i "error" logs.txt; then
+            echo "Errors found in container logs"
+            cat logs.txt
+            exit 1
+          else
+            echo "No errors found in container logs"
+          fi

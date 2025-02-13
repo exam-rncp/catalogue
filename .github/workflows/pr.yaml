@@ -1,16 +1,7 @@
-name: ci
+name: Build and Test Catalogue Image in Sock-Shop Ecosystem
 
 on:
-  push:
-    branches:
-      - main  # run for branches
-    tags:
-      - "*"  # run for tags
   pull_request:
-    branches:
-      - "*"  # run for branches
-    tags:
-      - "*"  # run for tags
 
 jobs:
   build:
@@ -27,7 +18,6 @@ jobs:
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
       GOPATH: /home/runner/work/catalogue/catalogue/go/
-      AWS_REGION: eu-central-1
 
     steps:
       - uses: actions/checkout@v4
@@ -77,9 +67,54 @@ jobs:
           username: ${{ env.GROUP }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Push user to Docker Hub
-        env:
-          TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+      - name: Run Docker Compose
+        id: docker-compose
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        with:
+          compose-file: "./docker-compose-dev.yaml"
+        continue-on-error: false
+
+      - name: Get Logs from Catalogue Container
+        run: docker logs catalogue-catalogue-1 > logs.txt || true
+
+      - name: Check for errors in logs
         run: |
-          docker push $GROUP/$REPO:$TAG
-          docker push $GROUP/$REPO_DB:$TAG
+          if grep -i "error" logs.txt; then
+            echo "Errors found in container logs"
+            cat logs.txt
+            exit 1
+          else
+            echo "No errors found in container logs"
+          fi
+
+      - name: Post Logs as PR Comment
+        if: steps.docker-compose.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logOutput;
+            try {
+              logOutput = fs.readFileSync('logs.txt', 'utf8');
+            } catch (error) {
+              logOutput = 'Unable to read logs.';
+            }
+            const output = `#### Docker logs catalogue 📖\`${{ steps.docker-compose.outcome }}\`
+            <details><summary>Show Logs</summary>
+
+            \`\`\`\n
+            ${logOutput}
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
