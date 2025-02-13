@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GROUP: f3lin
-      COMMIT: ${{ github.sha }}
       REPO: catalogue
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
@@ -39,43 +38,36 @@ jobs:
         run: |
           go test -v
 
-      - name: Container Tests
+      - name: Unit Tests
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-unit
-          make test-container
-  
-      - name: Docker images tag
+
+      - name: Generate Docker Compose File
         run: |
-          docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$COMMIT
-          docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO_DB:$COMMIT
-     
+          NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
+          TAG=$(echo $GITHUB_SHA | cut -c1-7)
+          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.yml
+          sed -i "s/\${TAG}/$TAG/g" docker-compose.yml
+          chmod 644 docker-compose.yml
+
+      - name: Container Tests
+        id: container_tests
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        run:  |
+          make test-container
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ env.GROUP }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Generate Docker Compose File
+      - name: Push user to Docker Hub
+        if: steps.container_tests.outcome == 'success'
         run: |
-          NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
-          cp docker-compose.yml docker-compose.temp.yml
-          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.temp.yml
-          sed -i "s/\${TAG}/$TAG/g" docker-compose.temp.yml
-          chmod 644 docker-compose.temp.yml
-
-      - name: Run Docker Compose
-        id: docker-compose
-        uses: hoverkraft-tech/compose-action@v2.0.1
-        with:
-          compose-file: "./docker-compose.temp.yml"
-        continue-on-error: false
-
-      - name: Checking application health...
-        run: |
-          docker exec catalogue-catalogue-1  wget -qO-  http://localhost:8080/health | jq .
-          if [ $? -ne 0 ]; then
-            echo "Health check failed"
-            exit 1
-          fi
+          TAG=$(echo $GITHUB_SHA | cut -c1-7)
+          docker push $GROUP/$REPO:$TAG
+          docker push $GROUP/$REPO_DB:$TAG
