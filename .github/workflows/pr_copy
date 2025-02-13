@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GROUP: f3lin
+      COMMIT: ${{ github.sha }}
       REPO: catalogue
       REPO_DB: catalogue-db
       GO_VERSION: 1.7.5
@@ -38,26 +39,43 @@ jobs:
         run: |
           go test -v
 
-      - name: Unit Tests
+      - name: Container Tests
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-unit
-
-      - name: Generate Docker Compose File
+          make test-container
+  
+      - name: Automatic Tagging of Releases
+        id: increment-git-tag
         run: |
-          NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
-          TAG=$(echo $GITHUB_SHA | cut -c1-7)
-          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.yml
-          sed -i "s/\${TAG}/$TAG/g" docker-compose.yml
-          chmod 644 docker-compose.yml
-
-      - name: Container Tests
-        id: container_tests
+          chmod +x scripts/git_update_tag.sh
+          bash scripts/git_update_tag.sh -v patch
         env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-        run:  |
-          make test-container > logs.txt || true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Docker images tag
+        env:
+          TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+           docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$TAG
+           docker image tag $GROUP/$REPO_DB:v0.0 $GROUP/$REPO_DB:$TAG
+     
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.GROUP }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Run Docker Compose
+        id: docker-compose
+        uses: hoverkraft-tech/compose-action@v2.0.1
+        with:
+          compose-file: "./docker-compose-dev.yaml"
+        continue-on-error: false
+
+      - name: Get Logs from Catalogue Container
+        run: docker logs catalogue-catalogue-1 > logs.txt || true
 
       - name: Check for errors in logs
         run: |
@@ -70,7 +88,7 @@ jobs:
           fi
 
       - name: Post Logs as PR Comment
-        if: steps.container_tests.outcome == 'success'
+        if: steps.docker-compose.outcome == 'success'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -82,7 +100,7 @@ jobs:
             } catch (error) {
               logOutput = 'Unable to read logs.';
             }
-            const output = `#### catalogue container testing output 📖\`${{ steps.container_tests.outcome }}\`
+            const output = `#### Docker logs catalogue 📖\`${{ steps.docker-compose.outcome }}\`
             <details><summary>Show Logs</summary>
 
             \`\`\`\n
