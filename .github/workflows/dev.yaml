@@ -49,7 +49,7 @@ jobs:
           NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
           TAG=$(echo $GITHUB_SHA | cut -c1-7)
           sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.yml
-          sed -i "s/\${TAG}/$TAG/g" docker-compose.temp.yml
+          sed -i "s/\${TAG}/$TAG/g" docker-compose.yml
           chmod 644 docker-compose.yml
 
       - name: Container Tests
