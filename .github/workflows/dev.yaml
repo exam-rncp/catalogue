@@ -46,14 +46,6 @@ jobs:
           make test-unit
           make test-container
   
-      - name: Automatic Tagging of Releases
-        id: increment-git-tag
-        run: |
-          chmod +x scripts/git_update_tag.sh
-          bash scripts/git_update_tag.sh -v patch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
       - name: Docker images tag
         run: |
           docker image tag $GROUP/$REPO:v0.0 $GROUP/$REPO:$COMMIT
@@ -65,22 +57,25 @@ jobs:
           username: ${{ env.GROUP }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
+      - name: Generate Docker Compose File
+        run: |
+          NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
+          cp docker-compose.yml docker-compose.temp.yml
+          sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.temp.yml
+          sed -i "s/\${TAG}/$TAG/g" docker-compose.temp.yml
+          chmod 644 docker-compose.temp.yml
+
       - name: Run Docker Compose
         id: docker-compose
         uses: hoverkraft-tech/compose-action@v2.0.1
         with:
-          compose-file: "./docker-compose-dev.yaml"
+          compose-file: "./docker-compose.temp.yml"
         continue-on-error: false
 
-      - name: Get Logs from Catalogue Container
-        run: docker logs catalogue-catalogue-1 > logs.txt || true
-
-      - name: Check for errors in logs
+      - name: Checking application health...
         run: |
-          if grep -i "error" logs.txt; then
-            echo "Errors found in container logs"
-            cat logs.txt
+          docker exec catalogue-catalogue-1  wget -qO-  http://localhost:8080/health | jq .
+          if [ $? -ne 0 ]; then
+            echo "Health check failed"
             exit 1
-          else
-            echo "No errors found in container logs"
           fi
