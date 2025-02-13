@@ -53,6 +53,7 @@ jobs:
           chmod 644 docker-compose.yml
 
       - name: Container Tests
+        id: container_tests
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
@@ -65,7 +66,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Push user to Docker Hub
-        if: steps.healthcheck.outcome == 'success'
+        if: steps.container_tests.outcome == 'success'
         run: |
           TAG=$(echo $GITHUB_SHA | cut -c1-7)
           docker push $GROUP/$REPO:$TAG
