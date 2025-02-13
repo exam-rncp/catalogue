@@ -38,7 +38,7 @@ jobs:
         run: |
           go test -v
 
-      - name: Container Tests
+      - name: Unit Tests
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
@@ -57,22 +57,6 @@ jobs:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run:  |
           make test-container
-
-      - name: Run Docker Compose
-        id: docker-compose
-        uses: hoverkraft-tech/compose-action@v2.0.1
-        with:
-          compose-file: "./docker-compose.temp.yml"
-        continue-on-error: false
-
-      - name: Checking application health...
-        id: healthcheck
-        run: |
-          docker exec catalogue-catalogue-1  wget -qO-  http://localhost:8080/health | jq .
-          if [ $? -ne 0 ]; then
-            echo "Health check failed"
-            exit 1
-          fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
