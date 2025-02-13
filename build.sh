@@ -9,10 +9,6 @@ NETWORK_NAME="network_$(git rev-parse --short HEAD || date +%s)"
 
 echo "Building images with tag: $TAG"
 
-# Build the images
-# docker build -t f3lin/catalogue:$TAG -f docker/catalogue/Dockerfile .
-# docker build -t f3lin/catalogue-db:$TAG -f docker/catalogue-db/Dockerfile ./docker/catalogue-db/
-
 # Create a temporary docker-compose file with the replaced network name
 cp docker-compose.yml docker-compose.temp.yml
 sed -i "s/\NETWORKS/$NETWORK_NAME/g" docker-compose.temp.yml
